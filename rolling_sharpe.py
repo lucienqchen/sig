@@ -2,7 +2,7 @@ import yfinance as yf
 import datetime as dt
 import pandas as pd
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 plt.style.use("ggplot")
 
 def rolling_sharpe(start=dt.datetime(2016, 1, 1), end=dt.datetime.now(), ticker=None, window=20):
