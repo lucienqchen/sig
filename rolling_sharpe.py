@@ -41,4 +41,4 @@ def plot_rs(ticker: str, rs_ser: pd.Series) -> None:
     
     fig.set_title(f"{ticker} Sharpe Ratio")
     fig.set_ylabel("Sharpe Ratio")
-    fig.axhline(y=0, color='black', linestyle='-', alpha=0.5)
+    fig.axhline(y=0, color='black', linestyle='-', alpha=0.4)
