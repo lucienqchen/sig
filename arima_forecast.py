@@ -17,17 +17,17 @@ def get_data(ticker: str) -> pd.Series:
     
     return ser
     
-def train_test_split(data: pd.Series) -> pd.DataFrame:
+def train_test_split(data: pd.Series, train_size: float = 0.75) -> pd.DataFrame:
     
     # creates size for train/test split
-    size = int(np.round(len(data) * 0.75, 2))
+    size = int(np.round(len(data) * train_size, 2))
     
     # splits the data into training and testing sets
     train, test = data[:size], data[size:]
     
     return train, test
 
-def fit(train: pd.Series, test: pd.Series) -> tuple(np.array, ARIMA):
+def fit(train: pd.Series, test: pd.Series) -> tuple[np.array, ARIMA]:
     
     # initializes historical data
     hist = [x for x in train]
