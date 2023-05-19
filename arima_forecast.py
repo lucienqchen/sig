@@ -1,19 +1,23 @@
 # imports
 import yfinance as yf
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
 
-def get_data(ticker: str) -> pd.Series:
+def get_data(ticker: str, start: datetime = None) -> pd.Series:
     
+    if start is None:
+        start = datetime.now() - relativedelta(years=5)
     # initialize Ticker object
     stock = yf.Ticker(ticker)
     
     # get Closing price dataframe
-    df = stock.history(start="2016-01-01")[["Close"]]
+    df = stock.history(start=start)[["Close"]]
     
-    # create the log series for TSA 
-    ser = np.log(df.Close)
+    # create the price data series for TSA 
+    ser = df.Close
     
     return ser
     
@@ -29,31 +33,22 @@ def train_test_split(data: pd.Series, train_size: float = 0.75) -> pd.DataFrame:
 
 def fit(train: pd.Series, test: pd.Series) -> tuple[np.array, ARIMA]:
     
-    # initializes historical data
-    hist = [x for x in train]
+    # initializes ARIMA model
+    model = ARIMA(train, order=(5, 2, 2))
     
-    # creates empty list for predictions
-    preds = []
+    # fits model
+    fitted_model = model.fit()
     
     # generates predictions
-    for t in range(len(test)):
-        
-        # reinitializes ARIMA model as we update historical data
-        model = ARIMA(hist, order=(5, 2, 0))
-        
-        # fits model
-        fitted_model = model.fit()
-        
-        # generates prediction
-        pred = fitted_model.forecast()
-        
-        # appends prediction to prediction list
-        preds.append(pred[0])
-        
-        # updates historical data
-        hist.append(test[t])
-        
-    return preds, fitted_model
+    preds = fitted_model.forecast(len(test)).to_numpy()
+    
+    # creates the full sequence of data by concatenating train and test
+    full_data = pd.concat([train, test])
+    
+    # recreates a final model
+    final_model = ARIMA(full_data, order=(5, 2, 2)).fit()
+    
+    return preds, final_model
 
 def rmse(obs: np.array, preds: np.array) -> float:
     
@@ -61,17 +56,28 @@ def rmse(obs: np.array, preds: np.array) -> float:
     
     return np.sqrt(np.mean((obs - preds) ** 2))
 
-def generate_forecasts(obs: pd.Series, preds: np.array, model: ARIMA, n: int) -> pd.DataFrame:
+def validate(train: pd.Series, test: pd.Series, preds: np.array) -> pd.DataFrame:
+    
+    # creates dataframe of 
+    df = pd.concat([pd.DataFrame(train), pd.DataFrame(test)])
+    df["Predictions"] = pd.Series(preds, index=test.index)
+    df.plot()
+    return df
+
+def generate_forecasts(obs: pd.Series, model: ARIMA, n: int) -> pd.DataFrame:
     
     # creates dataframe from obs data
-    df = np.exp(obs).to_frame()
+    df = obs.to_frame()
     
-    # adds prediction data to our dataframe
-    df["Predictions"] = np.exp(preds)
+    # adds prediction column to our dataframe
+    nulls = np.empty(df.shape[0])
+    nulls[:] = np.NaN
+    df["Predictions"] = nulls
+    
     
     # forecasts n steps 
-    forecast = np.exp(model.forecast(n))
-    for i in range(5):
-        df.loc[df.index[-1] + pd.Timedelta('1day')] = [np.NaN, forecast[i]]
-        
+    fc = model.forecast(n, alpha=0.05).to_numpy()
+    for i in range(n):
+        df.loc[df.index[-1] + pd.Timedelta('1day')] = [np.NaN, fc[i]]
+    
     return df
